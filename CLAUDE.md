@@ -14,6 +14,7 @@ Full product spec: `docs/spec.md`. Agent activity log: `docs/agent-log.md`.
 ## File map
 
 - `src/lib/schema.ts` — **QuerySpec Zod schema + shared types. The contract for the whole app. Change here first; other lanes depend on it.**
+- `src/lib/ai.ts` — AI provider abstraction (Gemini / Anthropic via fetch)
 - `src/lib/data.ts` — data access + aggregation helpers
 - `src/data/snapshot.ts` — static demo data (replaced by ingest pipeline later)
 - `src/app/page.tsx` — dashboard home (server component)
@@ -25,7 +26,7 @@ Full product spec: `docs/spec.md`. Agent activity log: `docs/agent-log.md`.
 
 - TypeScript strict; no `any`. Validate all external input (API requests, AI output) with Zod at the boundary.
 - Server components by default; `"use client"` only when interaction requires it.
-- AI calls: use `claude-haiku-4-5` via fetch (no SDK dependency). All AI output must pass `QuerySpecSchema.safeParse` before reaching the UI. Fail with a friendly 422, never render unvalidated output.
+- AI calls: provider-agnostic via `src/lib/ai.ts` (plain fetch, no SDK dependency). Supported: Gemini 2.5 Flash (free tier) and Claude Haiku, selected by env vars — see `.env.example`. All AI output must pass `QuerySpecSchema.safeParse` before reaching the UI. Fail with a friendly 422, never render unvalidated output.
 - Plain CSS in `globals.css` for now (design tokens as CSS variables). Component libraries (TanStack Table, Recharts) may be added when building the table/chart lanes — prefer TanStack Table for sorting/filtering.
 - Currency displayed as `$128K` style; percentages rounded to integers.
 - Commit style: conventional-ish, present tense ("add salary histogram endpoint").

@@ -6,23 +6,25 @@ Ask questions about the tech job market in plain English — skill demand, salar
 
 ## How it works
 
-Natural-language questions are sent to the Claude API, which returns a structured `QuerySpec` (metric, filters, visualization type) validated with Zod. The frontend executes that spec against aggregated job market data and renders the result as tables, charts, or stat cards. The AI never returns free text to the UI — every response is schema-validated structured output.
+Natural-language questions are sent to an LLM (Gemini or Claude — provider is configurable via env vars), which returns a structured `QuerySpec` (metric, filters, visualization type) validated with Zod. The frontend executes that spec against aggregated job market data and renders the result as tables, charts, or stat cards. The AI never returns free text to the UI — every response is schema-validated structured output.
 
 ```
-question ──► /api/ask ──► Claude API ──► QuerySpec JSON ──► Zod ──► table / chart / stat card
+question ──► /api/ask ──► LLM (Gemini/Claude) ──► QuerySpec JSON ──► Zod ──► table / chart / stat card
 ```
 
 ## Stack
 
-Next.js 15 (App Router) · TypeScript (strict) · Zod · Claude API · Vercel
+Next.js 15 (App Router) · TypeScript (strict) · Zod · Gemini/Claude API (configurable) · Vercel
 
 ## Getting started
 
 ```bash
 npm install
-cp .env.example .env.local   # add your ANTHROPIC_API_KEY (optional — mock mode without it)
+cp .env.example .env.local   # add GEMINI_API_KEY (free) or ANTHROPIC_API_KEY — mock mode without either
 npm run dev
 ```
+
+A free Gemini API key (no credit card) is available at [aistudio.google.com/apikey](https://aistudio.google.com/apikey).
 
 ## Built with AI agents
 

@@ -1,14 +1,15 @@
 import { NextResponse } from "next/server";
 import { QuerySpecSchema, type QuerySpec } from "@/lib/schema";
 import { getSkillNames } from "@/lib/data";
+import { askModel, resolveProvider } from "@/lib/ai";
 
 /**
  * POST /api/ask — the AI query pipeline.
- * question (natural language) → Claude → QuerySpec JSON → Zod validation.
+ * question (natural language) → AI provider → QuerySpec JSON → Zod validation.
  * The UI only ever receives a validated QuerySpec, never free text.
  *
- * Without ANTHROPIC_API_KEY set, returns a mock spec so the app works
- * out of the box.
+ * Without any API key set, returns a mock spec so the app works out
+ * of the box. Provider selection lives in src/lib/ai.ts.
  */
 
 const MOCK_SPEC: QuerySpec = {
@@ -17,7 +18,7 @@ const MOCK_SPEC: QuerySpec = {
   filters: {},
   visualization: "table",
   insight:
-    "Mock response — add ANTHROPIC_API_KEY to .env.local to enable live AI queries.",
+    "Mock response — add GEMINI_API_KEY (free) or ANTHROPIC_API_KEY to .env.local to enable live AI queries.",
 };
 
 export async function POST(req: Request) {
@@ -32,8 +33,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid question" }, { status: 400 });
   }
 
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
+  const provider = resolveProvider();
+  if (!provider) {
     return NextResponse.json({ spec: MOCK_SPEC, mock: true });
   }
 
@@ -45,28 +46,12 @@ export async function POST(req: Request) {
     "insight is a one-sentence, data-grounded observation (max 300 chars).",
   ].join("\n");
 
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify({
-      model: "claude-haiku-4-5",
-      max_tokens: 500,
-      system,
-      messages: [{ role: "user", content: question }],
-    }),
-  });
-
-  if (!res.ok) {
+  let text: string;
+  try {
+    text = await askModel(provider, system, question);
+  } catch {
     return NextResponse.json({ error: "AI request failed" }, { status: 502 });
   }
-
-  const data = await res.json();
-  const text: string =
-    data?.content?.find((b: { type: string }) => b.type === "text")?.text ?? "";
 
   const parsed = QuerySpecSchema.safeParse(extractJson(text));
   if (!parsed.success) {
