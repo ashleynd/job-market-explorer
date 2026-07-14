@@ -1,26 +1,26 @@
+import { Card, CardContent } from "@/components/ui/card";
 import { getTotals } from "@/lib/data";
 
-export default function StatCards() {
-  const { totalPostings, medianSalary, remoteShare, topTrend } = getTotals();
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <Card>
+      <CardContent>
+        <p className="mb-1 text-xs text-muted-foreground">{label}</p>
+        <p className="text-2xl font-semibold">{value}</p>
+      </CardContent>
+    </Card>
+  );
+}
+
+export default async function StatCards() {
+  const { totalPostings, medianSalary, remoteShare, topTrend } = await getTotals();
 
   return (
-    <div className="stat-grid">
-      <div className="stat-card">
-        <p className="label">Postings analyzed</p>
-        <p className="value">{totalPostings.toLocaleString()}</p>
-      </div>
-      <div className="stat-card">
-        <p className="label">Median salary</p>
-        <p className="value">${Math.round(medianSalary / 1000)}K</p>
-      </div>
-      <div className="stat-card">
-        <p className="label">Remote share</p>
-        <p className="value">{Math.round(remoteShare * 100)}%</p>
-      </div>
-      <div className="stat-card">
-        <p className="label">Fastest growing</p>
-        <p className="value">{topTrend.skill}</p>
-      </div>
+    <div className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <Stat label="Postings analyzed" value={totalPostings.toLocaleString("en-US")} />
+      <Stat label="Median salary" value={`$${Math.round(medianSalary / 1000)}K`} />
+      <Stat label="Remote share" value={`${Math.round(remoteShare * 100)}%`} />
+      <Stat label="Fastest growing" value={topTrend?.skill ?? "—"} />
     </div>
   );
 }

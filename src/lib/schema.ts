@@ -31,3 +31,15 @@ export interface SkillStat {
   medianSalary: number;
   remoteShare: number;
 }
+
+/**
+ * Result of executing a QuerySpec against live SkillStat[] data
+ * (src/lib/query.ts). visualization is resolved from QuerySpec's
+ * request — "lineChart" has no real backing data (no time series
+ * exists yet) and is coerced to "barChart".
+ */
+export interface QueryResult {
+  metric: QuerySpec["metric"];
+  visualization: "table" | "barChart" | "statCard";
+  rows: SkillStat[];
+}
