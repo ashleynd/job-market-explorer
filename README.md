@@ -38,3 +38,4 @@ This project is also an experiment in AI-assisted development: Phase 1 was scaff
 ## Data sources
 
 Demo snapshot today; scheduled ingestion from [Adzuna](https://developer.adzuna.com/), [Remotive](https://remotive.com/), and USAJobs planned. See `docs/spec.md`.
+# job-market-explorer
