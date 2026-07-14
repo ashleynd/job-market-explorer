@@ -8,7 +8,7 @@ const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 export const metadata: Metadata = {
   title: "Job Market Explorer",
   description:
-    "Ask questions about the tech job market in plain English — skill demand, salaries, and remote work trends, powered by AI.",
+    "Ask questions about these skillsets in the current market in plain English — skill demand, salaries, and remote work trends, powered by AI.",
 };
 
 export default function RootLayout({
