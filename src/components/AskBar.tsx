@@ -13,7 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { QueryResult } from "@/lib/schema";
+import type { QuerySpec, QueryResult } from "@/lib/schema";
 
 const SUGGESTIONS = [
   "Is React demand growing or shrinking?",
@@ -21,9 +21,15 @@ const SUGGESTIONS = [
   "What share of TypeScript jobs are remote?",
 ];
 
-interface AskResponse {
+const MAX_HISTORY_TURNS = 3;
+
+interface Exchange {
+  id: string;
+  question: string;
+  spec: QuerySpec;
   result: QueryResult;
   insight: string;
+  followUps: string[];
 }
 
 function formatMetric(metric: QueryResult["metric"], value: number): string {
@@ -94,27 +100,57 @@ function ResultView({ result }: { result: QueryResult }) {
   );
 }
 
+function ExchangeView({ exchange }: { exchange: Exchange }) {
+  return (
+    <div className="mb-6">
+      <p className="mb-2 text-sm font-medium text-muted-foreground">{exchange.question}</p>
+      {exchange.insight && (
+        <div className="mb-3 rounded-md bg-accent px-4 py-3 text-sm text-accent-foreground">
+          ✦ {exchange.insight}
+        </div>
+      )}
+      <ResultView result={exchange.result} />
+    </div>
+  );
+}
+
 export default function AskBar() {
   const [question, setQuestion] = useState("");
   const [loading, setLoading] = useState(false);
-  const [response, setResponse] = useState<AskResponse | null>(null);
+  const [exchanges, setExchanges] = useState<Exchange[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  async function ask(q: string) {
+  async function ask(q: string, { carryHistory }: { carryHistory: boolean }) {
     setLoading(true);
     setError(null);
-    setResponse(null);
     try {
+      const history = carryHistory
+        ? exchanges
+            .slice(0, MAX_HISTORY_TURNS)
+            .reverse()
+            .map(({ question, spec }) => ({ question, spec }))
+        : [];
       const res = await fetch("/api/ask", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ question: q }),
+        body: JSON.stringify({ question: q, history }),
       });
       const data = await res.json();
       if (!res.ok) {
         setError(data.error ?? "Something went wrong. Try rephrasing.");
       } else {
-        setResponse({ result: data.result, insight: data.insight });
+        setExchanges((prev) => [
+          {
+            id: crypto.randomUUID(),
+            question: q,
+            spec: data.spec,
+            result: data.result,
+            insight: data.insight,
+            followUps: data.followUps ?? [],
+          },
+          ...prev,
+        ]);
+        setQuestion("");
       }
     } catch {
       setError("Network error. Try again.");
@@ -123,13 +159,15 @@ export default function AskBar() {
     }
   }
 
+  const chips = exchanges.length === 0 ? SUGGESTIONS : exchanges[0].followUps;
+
   return (
     <section>
       <form
         className="mb-3 flex gap-2"
         onSubmit={(e) => {
           e.preventDefault();
-          if (question.trim()) ask(question.trim());
+          if (question.trim()) ask(question.trim(), { carryHistory: false });
         }}
       >
         <Input
@@ -145,23 +183,22 @@ export default function AskBar() {
         </Button>
       </form>
 
-      <div className="mb-6 flex flex-wrap gap-1.5">
-        {SUGGESTIONS.map((s) => (
-          <Button
-            key={s}
-            type="button"
-            variant="outline"
-            size="xs"
-            className="rounded-full text-muted-foreground"
-            onClick={() => {
-              setQuestion(s);
-              ask(s);
-            }}
-          >
-            {s}
-          </Button>
-        ))}
-      </div>
+      {chips.length > 0 && (
+        <div className="mb-6 flex flex-wrap gap-1.5">
+          {chips.map((s) => (
+            <Button
+              key={s}
+              type="button"
+              variant="outline"
+              size="xs"
+              className="rounded-full text-muted-foreground"
+              onClick={() => ask(s, { carryHistory: exchanges.length > 0 })}
+            >
+              {s}
+            </Button>
+          ))}
+        </div>
+      )}
 
       {error && (
         <div className="mb-6 rounded-md bg-accent px-4 py-3 text-sm text-accent-foreground">
@@ -169,16 +206,9 @@ export default function AskBar() {
         </div>
       )}
 
-      {response && (
-        <>
-          {response.insight && (
-            <div className="mb-6 rounded-md bg-accent px-4 py-3 text-sm text-accent-foreground">
-              ✦ {response.insight}
-            </div>
-          )}
-          <ResultView result={response.result} />
-        </>
-      )}
+      {exchanges.map((exchange) => (
+        <ExchangeView key={exchange.id} exchange={exchange} />
+      ))}
     </section>
   );
 }
