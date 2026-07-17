@@ -102,7 +102,7 @@ function ResultView({ result }: { result: QueryResult }) {
 
 function ExchangeView({ exchange }: { exchange: Exchange }) {
   return (
-    <div className="mb-6">
+    <div className="mb-6 animate-in fade-in slide-in-from-top-4 duration-500">
       <p className="mb-2 text-sm font-medium text-muted-foreground">{exchange.question}</p>
       {exchange.insight && (
         <div className="mb-3 rounded-md bg-accent px-4 py-3 text-sm text-accent-foreground">
@@ -111,6 +111,20 @@ function ExchangeView({ exchange }: { exchange: Exchange }) {
       )}
       <ResultView result={exchange.result} />
     </div>
+  );
+}
+
+function ExchangeSkeleton() {
+  return (
+    <Card className="mb-6 animate-in fade-in px-4 py-4">
+      <div className="mb-3 h-4 w-2/5 animate-pulse rounded bg-muted" />
+      <div className="mb-4 h-10 w-full animate-pulse rounded-md bg-accent/60" />
+      <div className="space-y-2">
+        <div className="h-6 w-full animate-pulse rounded bg-muted" />
+        <div className="h-6 w-full animate-pulse rounded bg-muted" />
+        <div className="h-6 w-3/4 animate-pulse rounded bg-muted" />
+      </div>
+    </Card>
   );
 }
 
@@ -205,6 +219,8 @@ export default function AskBar() {
           {error}
         </div>
       )}
+
+      {loading && <ExchangeSkeleton />}
 
       {exchanges.map((exchange) => (
         <ExchangeView key={exchange.id} exchange={exchange} />
