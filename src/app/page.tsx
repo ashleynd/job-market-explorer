@@ -1,4 +1,5 @@
 import AskBar from "@/components/AskBar";
+import SkillCategories from "@/components/SkillCategories";
 import SkillsTable from "@/components/SkillsTable";
 import StatCards from "@/components/StatCards";
 import ThemeToggle from "@/components/ThemeToggle";
@@ -21,6 +22,7 @@ export default function Home() {
       </p>
       <AskBar />
       <StatCards />
+      <SkillCategories />
       <SkillsTable />
     </main>
   );

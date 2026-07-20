@@ -1,9 +1,17 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { QuerySpecSchema, type QuerySpec, type QueryResult } from "@/lib/schema";
-import { getSkillNames, getSkillStats } from "@/lib/data";
+import type { QuerySpec, QueryResult } from "@/lib/schema";
+import { getSkillStats } from "@/lib/data";
 import { executeQuerySpec } from "@/lib/query";
 import { askModel, resolveProvider } from "@/lib/ai";
+import {
+  AskHistorySchema,
+  type AskHistory,
+  AiRequestError,
+  SpecValidationError,
+  generateQuerySpec,
+  extractJson,
+} from "@/lib/querySpec";
 
 /**
  * POST /api/ask — the AI query pipeline.
@@ -25,13 +33,6 @@ import { askModel, resolveProvider } from "@/lib/ai";
  * Provider selection lives in src/lib/ai.ts.
  */
 
-const MOCK_SPEC: QuerySpec = {
-  metric: "postings",
-  groupBy: "skill",
-  filters: {},
-  visualization: "table",
-};
-
 const MOCK_INSIGHT =
   "Mock query — add GEMINI_API_KEY (free) or ANTHROPIC_API_KEY to .env.local to enable live AI queries.";
 
@@ -45,11 +46,6 @@ const InsightResponseSchema = z.object({
   insight: z.string().max(300),
   followUps: z.array(z.string().max(120)).min(1).max(4),
 });
-
-const AskHistorySchema = z
-  .array(z.object({ question: z.string().max(300), spec: QuerySpecSchema }))
-  .max(3);
-type AskHistory = z.infer<typeof AskHistorySchema>;
 
 export async function POST(req: Request) {
   let question: unknown;
@@ -76,35 +72,19 @@ export async function POST(req: Request) {
   const provider = resolveProvider();
 
   let spec: QuerySpec;
-  if (!provider) {
-    spec = MOCK_SPEC;
-  } else {
-    const system = [
-      "You translate questions about the tech job market into a JSON QuerySpec.",
-      `Available skills: ${getSkillNames().join(", ")}.`,
-      "Respond with ONLY a valid JSON object, no prose, matching this shape:",
-      `{"metric":"postings"|"medianSalary"|"remoteShare","groupBy":"skill","filters":{"skills"?:string[],"remoteOnly"?:boolean},"visualization":"table"|"barChart"|"statCard"}`,
-      "groupBy must always be \"skill\" — month-over-month history isn't available.",
-      "visualization must be table, barChart, or statCard — lineChart isn't supported (no time-series data).",
-      "Do not include a months filter — it isn't supported.",
-      ...buildHistoryPromptLines(history),
-    ].join("\n");
-
-    let text: string;
-    try {
-      text = await askModel(provider, system, question);
-    } catch {
+  try {
+    spec = await generateQuerySpec(question, provider, history);
+  } catch (err) {
+    if (err instanceof AiRequestError) {
       return NextResponse.json({ error: "AI request failed" }, { status: 502 });
     }
-
-    const parsed = QuerySpecSchema.safeParse(extractJson(text));
-    if (!parsed.success) {
+    if (err instanceof SpecValidationError) {
       return NextResponse.json(
         { error: "Couldn't understand that question. Try rephrasing." },
         { status: 422 }
       );
     }
-    spec = parsed.data;
+    throw err;
   }
 
   const stats = await getSkillStats();
@@ -120,18 +100,6 @@ export async function POST(req: Request) {
       }));
 
   return NextResponse.json({ spec, result, insight, followUps, mock: !provider });
-}
-
-function buildHistoryPromptLines(history: AskHistory): string[] {
-  if (history.length === 0) return [];
-  const turns = history
-    .map((turn, i) => `${i + 1}. Q: "${turn.question}" -> ${JSON.stringify(turn.spec)}`)
-    .join("\n");
-  return [
-    "Prior turns in this conversation (most recent last):",
-    turns,
-    "The new question may be a refinement of the most recent prior spec (e.g. \"also show Java\", \"now only remote\", \"what about salary instead\") — adjust that spec rather than starting over. If the new question is unrelated, ignore history and answer fresh. Merge filters.skills (add/remove) rather than discarding it outright when the user references \"that\" or \"those\".",
-  ];
 }
 
 async function writeInsightAndFollowUps(
@@ -197,15 +165,4 @@ function fallbackFollowUps(spec: QuerySpec): string[] {
   if (!spec.filters.remoteOnly) suggestions.push("Only remote roles");
   if (spec.metric !== "postings") suggestions.push("Which has the most postings?");
   return suggestions.slice(0, 3);
-}
-
-function extractJson(text: string): unknown {
-  const start = text.indexOf("{");
-  const end = text.lastIndexOf("}");
-  if (start === -1 || end <= start) return null;
-  try {
-    return JSON.parse(text.slice(start, end + 1));
-  } catch {
-    return null;
-  }
 }

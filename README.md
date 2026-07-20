@@ -2,7 +2,8 @@
 
 Ask questions about the tech job market in plain English — skill demand, salaries, and remote-work trends — and get answers as interactive tables and charts, not chat text.
 
-**Live demo:** _coming soon (Vercel)_
+**Live demo:** https://job-market-explorer.vercel.app/ 
+
 
 ## How it works
 
